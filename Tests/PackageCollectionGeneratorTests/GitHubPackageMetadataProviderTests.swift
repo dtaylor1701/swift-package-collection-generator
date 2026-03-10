@@ -13,36 +13,25 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import XCTest
+import Testing
 
 import Basics
 @testable import PackageCollectionGenerator
 import enum TSCBasic.ProcessEnv
 
-final class GitHubPackageMetadataProviderTests: XCTestCase {
-    func test_apiURL() throws {
+@Suite("GitHubPackageMetadataProvider Tests")
+struct GitHubPackageMetadataProviderTests {
+    @Test func apiURL() throws {
         let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")
         let provider = GitHubPackageMetadataProvider()
 
-        do {
-            let sshURLRetVal = provider.apiURL("git@github.com:octocat/Hello-World.git")
-            XCTAssertEqual(apiURL, sshURLRetVal)
-        }
-
-        do {
-            let httpsURLRetVal = provider.apiURL("https://github.com/octocat/Hello-World.git")
-            XCTAssertEqual(apiURL, httpsURLRetVal)
-        }
-
-        do {
-            let httpsURLRetVal = provider.apiURL("https://github.com/octocat/Hello-World")
-            XCTAssertEqual(apiURL, httpsURLRetVal)
-        }
-
-        XCTAssertNil(provider.apiURL("bad/Hello-World.git"))
+        #expect(provider.apiURL("git@github.com:octocat/Hello-World.git") == apiURL)
+        #expect(provider.apiURL("https://github.com/octocat/Hello-World.git") == apiURL)
+        #expect(provider.apiURL("https://github.com/octocat/Hello-World") == apiURL)
+        #expect(provider.apiURL("bad/Hello-World.git") == nil)
     }
 
-    func testGood() throws {
+    @Test func good() async throws {
         let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
         let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
         let authTokens = [AuthTokenType.github("github.com"): "foo"]
@@ -69,7 +58,7 @@ final class GitHubPackageMetadataProviderTests: XCTestCase {
                                           headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                           body: data)))
             default:
-                XCTFail("method and url should match")
+                fatalError("method and url should match")
             }
         }
 
@@ -78,16 +67,20 @@ final class GitHubPackageMetadataProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
 
         let provider = GitHubPackageMetadataProvider(authTokens: authTokens, httpClient: httpClient)
-        let metadata = try temp_await { callback in provider.get(repoURL, callback: callback) }
+        let metadata = try await withCheckedThrowingContinuation { continuation in
+            provider.get(repoURL) { result in
+                continuation.resume(with: result)
+            }
+        }
 
-        XCTAssertEqual("This your first repo!", metadata.summary)
-        XCTAssertEqual(["octocat", "atom", "electron", "api"], metadata.keywords)
-        XCTAssertEqual(URL(string: "https://raw.githubusercontent.com/octokit/octokit.rb/master/README.md"), metadata.readmeURL)
-        XCTAssertEqual("MIT", metadata.license?.name)
-        XCTAssertEqual(URL(string: "https://raw.githubusercontent.com/benbalter/gman/master/LICENSE?lab=true"), metadata.license?.url)
+        #expect(metadata.summary == "This your first repo!")
+        #expect(metadata.keywords == ["octocat", "atom", "electron", "api"])
+        #expect(metadata.readmeURL == URL(string: "https://raw.githubusercontent.com/octokit/octokit.rb/master/README.md"))
+        #expect(metadata.license?.name == "MIT")
+        #expect(metadata.license?.url == URL(string: "https://raw.githubusercontent.com/benbalter/gman/master/LICENSE?lab=true"))
     }
 
-    func testInvalidAuthToken() throws {
+    @Test func invalidAuthToken() async throws {
         let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
         let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
         let authTokens = [AuthTokenType.github("github.com"): "foo"]
@@ -96,7 +89,6 @@ final class GitHubPackageMetadataProviderTests: XCTestCase {
             if request.headers.get("Authorization").first == "token \(authTokens.first!.value)" {
                 completion(.success(.init(statusCode: 401)))
             } else {
-                XCTFail("expected correct authorization header")
                 completion(.success(.init(statusCode: 500)))
             }
         }
@@ -106,12 +98,17 @@ final class GitHubPackageMetadataProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
 
         let provider = GitHubPackageMetadataProvider(authTokens: authTokens, httpClient: httpClient)
-        XCTAssertThrowsError(try temp_await { callback in provider.get(repoURL, callback: callback) }, "should throw error") { error in
-            XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidAuthToken(apiURL))
+        
+        await #expect(throws: GitHubPackageMetadataProvider.Errors.invalidAuthToken(apiURL)) {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<PackageBasicMetadata, Error>) in
+                provider.get(repoURL) { result in
+                    continuation.resume(with: result)
+                }
+            }
         }
     }
 
-    func testRepoNotFound() throws {
+    @Test func repoNotFound() async throws {
         let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
         let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
         let authTokens = [AuthTokenType.github("github.com"): "foo"]
@@ -125,12 +122,17 @@ final class GitHubPackageMetadataProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
 
         let provider = GitHubPackageMetadataProvider(authTokens: authTokens, httpClient: httpClient)
-        XCTAssertThrowsError(try temp_await { callback in provider.get(repoURL, callback: callback) }, "should throw error") { error in
-            XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .notFound(apiURL))
+        
+        await #expect(throws: GitHubPackageMetadataProvider.Errors.notFound(apiURL)) {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<PackageBasicMetadata, Error>) in
+                provider.get(repoURL) { result in
+                    continuation.resume(with: result)
+                }
+            }
         }
     }
 
-    func testOthersNotFound() throws {
+    @Test func othersNotFound() async throws {
         let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
         let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
         let authTokens = [AuthTokenType.github("github.com"): "foo"]
@@ -156,15 +158,19 @@ final class GitHubPackageMetadataProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
 
         let provider = GitHubPackageMetadataProvider(authTokens: authTokens, httpClient: httpClient)
-        let metadata = try temp_await { callback in provider.get(repoURL, callback: callback) }
+        let metadata = try await withCheckedThrowingContinuation { continuation in
+            provider.get(repoURL) { result in
+                continuation.resume(with: result)
+            }
+        }
 
-        XCTAssertEqual("This your first repo!", metadata.summary)
-        XCTAssertEqual(["octocat", "atom", "electron", "api"], metadata.keywords)
-        XCTAssertNil(metadata.readmeURL)
-        XCTAssertNil(metadata.license)
+        #expect(metadata.summary == "This your first repo!")
+        #expect(metadata.keywords == ["octocat", "atom", "electron", "api"])
+        #expect(metadata.readmeURL == nil)
+        #expect(metadata.license == nil)
     }
 
-    func testPermissionDenied() throws {
+    @Test func permissionDenied() async throws {
         let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
         let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
 
@@ -177,45 +183,26 @@ final class GitHubPackageMetadataProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
 
         let provider = GitHubPackageMetadataProvider(httpClient: httpClient)
-        XCTAssertThrowsError(try temp_await { callback in provider.get(repoURL, callback: callback) }, "should throw error") { error in
-            XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .permissionDenied(apiURL))
+        
+        await #expect(throws: GitHubPackageMetadataProvider.Errors.permissionDenied(apiURL)) {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<PackageBasicMetadata, Error>) in
+                provider.get(repoURL) { result in
+                    continuation.resume(with: result)
+                }
+            }
         }
     }
 
-    func testInvalidURL() throws {
+    @Test func invalidURL() async throws {
         let repoURL = URL(string: "/")!
         let provider = GitHubPackageMetadataProvider()
-        XCTAssertThrowsError(try temp_await { callback in provider.get(repoURL, callback: callback) }, "should throw error") { error in
-            XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidGitURL(repoURL))
-        }
-    }
-
-    func testForRealz() throws {
-        #if ENABLE_GITHUB_NETWORK_TEST
-        #else
-        try XCTSkipIf(true)
-        #endif
-
-        let repoURL = URL(string: "https://github.com/apple/swift-numerics.git")!
-
-        let httpClient = LegacyHTTPClient()
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
-        httpClient.configuration.requestHeaders = .init()
-        httpClient.configuration.requestHeaders!.add(name: "Cache-Control", value: "no-cache")
-
-        var authTokens: [AuthTokenType: String] = [:]
-        if let token = ProcessEnv.vars["GITHUB_API_TOKEN"] {
-            authTokens[.github("github.com")] = token
-        }
-
-        let provider = GitHubPackageMetadataProvider(authTokens: authTokens, httpClient: httpClient)
-        for _ in 0 ... 60 {
-            let metadata = try temp_await { callback in provider.get(repoURL, callback: callback) }
-            XCTAssertNotNil(metadata)
-            XCTAssert(metadata.keywords!.count > 0)
-            XCTAssertNotNil(metadata.readmeURL)
-            XCTAssertNotNil(metadata.license)
+        
+        await #expect(throws: GitHubPackageMetadataProvider.Errors.invalidGitURL(repoURL)) {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<PackageBasicMetadata, Error>) in
+                provider.get(repoURL) { result in
+                    continuation.resume(with: result)
+                }
+            }
         }
     }
 

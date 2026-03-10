@@ -12,50 +12,57 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
+import Foundation
+import Testing
 
 import Basics
 @testable import PackageCollectionValidator
 @testable import TestUtilities
 
-final class PackageCollectionValidateTests: XCTestCase {
-    func test_help() throws {
-        XCTAssert(try executeCommand(command: "package-collection-validate --help")
-            .stdout.contains("USAGE: package-collection-validate <input-path> [--warnings-as-errors] [--verbose]"))
+@Suite("PackageCollectionValidate Tests")
+struct PackageCollectionValidateTests {
+    @Test func help() throws {
+        let result = try executeCommand(executable: "package-collection-validate", arguments: ["--help"])
+        #expect(result.stdout.contains("USAGE: package-collection-validate <input-path> [--warnings-as-errors] [--verbose]"))
     }
 
-    func test_good() throws {
+    @Test func good() throws {
         let inputFilePath = try AbsolutePath(validating: #file).parentDirectory.appending(components: "Inputs", "valid.json")
 
-        XCTAssert(try executeCommand(command: "package-collection-validate --verbose \(inputFilePath.pathString)")
-            .stdout.contains("The package collection is valid."))
+        let result = try executeCommand(executable: "package-collection-validate", arguments: ["--verbose", inputFilePath.pathString])
+        #expect(result.stdout.contains("The package collection is valid."))
+        #expect(result.exitCode == 0)
     }
 
-    func test_badJSON() throws {
+    @Test func badJSON() throws {
         let inputFilePath = try AbsolutePath(validating: #file).parentDirectory.appending(components: "Inputs", "bad.json")
 
-        XCTAssert(try executeCommand(command: "package-collection-validate --verbose \(inputFilePath.pathString)", exitCode: .failure)
-            .stderr.contains("Failed to parse package collection"))
+        let result = try executeCommand(executable: "package-collection-validate", arguments: ["--verbose", inputFilePath.pathString])
+        #expect(result.stderr.contains("Failed to parse package collection"))
+        #expect(result.exitCode != 0)
     }
 
-    func test_collectionWithErrors() throws {
+    @Test func collectionWithErrors() throws {
         let inputFilePath = try AbsolutePath(validating: #file).parentDirectory.appending(components: "Inputs", "error-no-packages.json")
 
-        XCTAssert(try executeCommand(command: "package-collection-validate --verbose \(inputFilePath.pathString)", exitCode: .failure)
-            .stdout.contains("must contain at least one package"))
+        let result = try executeCommand(executable: "package-collection-validate", arguments: ["--verbose", inputFilePath.pathString])
+        #expect(result.stdout.contains("must contain at least one package"))
+        #expect(result.exitCode != 0)
     }
 
-    func test_collectionWithWarnings() throws {
+    @Test func collectionWithWarnings() throws {
         let inputFilePath = try AbsolutePath(validating: #file).parentDirectory.appending(components: "Inputs", "warning-too-many-versions.json")
 
-        XCTAssert(try executeCommand(command: "package-collection-validate --verbose \(inputFilePath.pathString)")
-            .stdout.contains("includes too many major versions"))
+        let result = try executeCommand(executable: "package-collection-validate", arguments: ["--verbose", inputFilePath.pathString])
+        #expect(result.stdout.contains("includes too many major versions"))
+        #expect(result.exitCode == 0)
     }
 
-    func test_warningsAsErrors() throws {
+    @Test func warningsAsErrors() throws {
         let inputFilePath = try AbsolutePath(validating: #file).parentDirectory.appending(components: "Inputs", "warning-too-many-versions.json")
 
-        XCTAssert(try executeCommand(command: "package-collection-validate --warnings-as-errors --verbose \(inputFilePath.pathString)", exitCode: .failure)
-            .stderr.contains("includes too many major versions"))
+        let result = try executeCommand(executable: "package-collection-validate", arguments: ["--warnings-as-errors", "--verbose", inputFilePath.pathString])
+        #expect(result.stderr.contains("includes too many major versions"))
+        #expect(result.exitCode != 0)
     }
 }

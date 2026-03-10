@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import XCTest
+import Testing
 
 import Basics
 @testable import PackageCollectionSigner
@@ -23,13 +23,14 @@ import PackageCollectionsSigning
 
 private typealias Model = PackageCollectionModel.V1
 
-final class PackageCollectionSignTests: XCTestCase {
-    func test_help() throws {
-        XCTAssert(try executeCommand(command: "package-collection-sign --help")
-            .stdout.contains("USAGE: package-collection-sign <input-path> <output-path> <private-key-path> <cert-chain-paths> ... [--verbose]"))
+@Suite("PackageCollectionSign Tests")
+struct PackageCollectionSignTests {
+    @Test func help() throws {
+        let result = try executeCommand(executable: "package-collection-sign", arguments: ["--help"])
+        #expect(result.stdout.contains("USAGE: package-collection-sign <input-path> <output-path> <private-key-path> <cert-chain-paths> ... [--verbose]"))
     }
 
-    func test_endToEnd() async throws {
+    @Test func endToEnd() async throws {
         try await withTemporaryDirectory(prefix: "PackageCollectionToolTests", removeTreeOnDeinit: true) { tmpDir in
             let inputPath = try AbsolutePath(validating: #file).parentDirectory.appending(components: "Inputs", "test.json")
             let outputPath = tmpDir.appending(component: "signed-test.json")
@@ -53,7 +54,7 @@ final class PackageCollectionSignTests: XCTestCase {
             // Assert the generated package collection
             let bytes = try localFileSystem.readFileContents(outputPath).contents
             let signedCollection = try jsonDecoder.decode(Model.SignedCollection.self, from: Data(bytes))
-            XCTAssertEqual("test signature", signedCollection.signature.signature)
+            #expect(signedCollection.signature.signature == "test signature")
         }
     }
 }

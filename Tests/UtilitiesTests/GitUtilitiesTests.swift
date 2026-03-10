@@ -13,33 +13,34 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import XCTest
+import Testing
 
 @testable import Utilities
 
-final class GitUtilitiesTests: XCTestCase {
-    func testGitURL() throws {
+@Suite("GitUtilities Tests")
+struct GitUtilitiesTests {
+    @Test func gitURL() throws {
         do {
             let gitURL = GitURL.from("https://github.com/octocat/Hello-World")
-            XCTAssertEqual("github.com", gitURL?.host)
-            XCTAssertEqual("octocat", gitURL?.owner)
-            XCTAssertEqual("Hello-World", gitURL?.repository)
+            #expect(gitURL?.host == "github.com")
+            #expect(gitURL?.owner == "octocat")
+            #expect(gitURL?.repository == "Hello-World")
         }
 
         do {
             let gitURL = GitURL.from("https://github.com/octocat/Hello-World.git")
-            XCTAssertEqual("github.com", gitURL?.host)
-            XCTAssertEqual("octocat", gitURL?.owner)
-            XCTAssertEqual("Hello-World", gitURL?.repository)
+            #expect(gitURL?.host == "github.com")
+            #expect(gitURL?.owner == "octocat")
+            #expect(gitURL?.repository == "Hello-World")
         }
 
         do {
             let gitURL = GitURL.from("git@github.com:octocat/Hello-World.git")
-            XCTAssertEqual("github.com", gitURL?.host)
-            XCTAssertEqual("octocat", gitURL?.owner)
-            XCTAssertEqual("Hello-World", gitURL?.repository)
+            #expect(gitURL?.host == "github.com")
+            #expect(gitURL?.owner == "octocat")
+            #expect(gitURL?.repository == "Hello-World")
         }
 
-        XCTAssertNil(GitURL.from("bad/Hello-World.git"))
+        #expect(GitURL.from("bad/Hello-World.git") == nil)
     }
 }

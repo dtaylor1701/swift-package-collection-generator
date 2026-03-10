@@ -12,39 +12,44 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
+import Foundation
+import Testing
 
 import Basics
 @testable import PackageCollectionDiff
 @testable import TestUtilities
 
-final class PackageCollectionDiffTests: XCTestCase {
-    func test_help() throws {
-        XCTAssert(try executeCommand(command: "package-collection-diff --help")
-            .stdout.contains("USAGE: package-collection-diff <collection-one-path> <collection-two-path> [--verbose]"))
+@Suite("PackageCollectionDiff Tests")
+struct PackageCollectionDiffTests {
+    @Test func help() throws {
+        let result = try executeCommand(executable: "package-collection-diff", arguments: ["--help"])
+        #expect(result.stdout.contains("USAGE: package-collection-diff <collection-one-path> <collection-two-path> [--verbose]"))
     }
 
-    func test_same() throws {
+    @Test func same() throws {
         let path = try AbsolutePath(validating: #file).parentDirectory.appending(components: "Inputs", "test.json")
 
-        XCTAssert(try executeCommand(command: "package-collection-diff \(path.pathString) \(path.pathString)")
-            .stdout.contains("The package collections are the same."))
+        let result = try executeCommand(executable: "package-collection-diff", arguments: [path.pathString, path.pathString])
+        #expect(result.stdout.contains("The package collections are the same."))
+        #expect(result.exitCode == 0)
     }
 
-    func test_differentGeneratedAt() throws {
+    @Test func differentGeneratedAt() throws {
         let pathOne = try AbsolutePath(validating: #file).parentDirectory.appending(components: "Inputs", "test.json")
         let pathTwo = try AbsolutePath(validating: #file).parentDirectory.appending(components: "Inputs", "test_diff_generated_at.json")
 
         // Two collections with only `generatedAt` being different are considered the same
-        XCTAssert(try executeCommand(command: "package-collection-diff \(pathOne.pathString) \(pathTwo.pathString)")
-            .stdout.contains("The package collections are the same."))
+        let result = try executeCommand(executable: "package-collection-diff", arguments: [pathOne.pathString, pathTwo.pathString])
+        #expect(result.stdout.contains("The package collections are the same."))
+        #expect(result.exitCode == 0)
     }
 
-    func test_differentPackages() throws {
+    @Test func differentPackages() throws {
         let pathOne = try AbsolutePath(validating: #file).parentDirectory.appending(components: "Inputs", "test.json")
         let pathTwo = try AbsolutePath(validating: #file).parentDirectory.appending(components: "Inputs", "test_diff_packages.json")
 
-        XCTAssert(try executeCommand(command: "package-collection-diff \(pathOne.pathString) \(pathTwo.pathString)")
-            .stdout.contains("The package collections are different."))
+        let result = try executeCommand(executable: "package-collection-diff", arguments: [pathOne.pathString, pathTwo.pathString])
+        #expect(result.stdout.contains("The package collections are different."))
+        #expect(result.exitCode == 0)
     }
 }

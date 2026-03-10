@@ -13,14 +13,15 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import XCTest
+import Testing
 
 import Basics
 @testable import PackageCollectionGenerator
 import PackageCollectionsModel
 
-class PackageCollectionGeneratorInputTests: XCTestCase {
-    func testLoadFromFile() throws {
+@Suite("PackageCollectionGeneratorInput Tests")
+struct PackageCollectionGeneratorInputTests {
+    @Test func loadFromFile() throws {
         let expectedInput = PackageCollectionGeneratorInput(
             name: "Test Package Collection",
             overview: "A test package collection",
@@ -51,10 +52,10 @@ class PackageCollectionGeneratorInputTests: XCTestCase {
             from: Data(try localFileSystem.readFileContents(inputFilePath).contents)
         )
 
-        XCTAssertEqual(expectedInput, input)
+        #expect(expectedInput == input)
     }
 
-    func testCodable() throws {
+    @Test func codable() throws {
         let input = PackageCollectionGeneratorInput(
             name: "Test Package Collection",
             overview: "A test package collection",
@@ -78,6 +79,6 @@ class PackageCollectionGeneratorInputTests: XCTestCase {
 
         let data = try JSONEncoder().encode(input)
         let decoded = try JSONDecoder().decode(PackageCollectionGeneratorInput.self, from: data)
-        XCTAssertEqual(input, decoded)
+        #expect(input == decoded)
     }
 }
